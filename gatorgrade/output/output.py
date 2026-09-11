@@ -801,6 +801,7 @@ def _format_remaining_time(due_date: datetime.datetime) -> tuple[str, str]:
     return f"{OVERDUE_LABEL} by {time_str}", TIME_REMAINING_OVERDUE
 
 
+
 def run_checks(  # noqa: PLR0912, PLR0913, PLR0915
     checks: List[Union[ShellCheck, GatorGraderCheck]],
     report: Tuple[str, str, str],
@@ -890,6 +891,53 @@ def run_checks(  # noqa: PLR0912, PLR0913, PLR0915
     # run each of the checks
     # check how many tests are being ran
     total_checks = len(checks)
+    ######################
+    rich.print()
+    rich.print(Rule(RUNNING_CHECKS_RULE_LABEL))
+    rich.print()
+
+    def run_checks_handle_prog_bar(task=None) -> None:
+        for check in checks:
+            result = None
+            if isinstance(check, ShellCheck):
+                result = _run_shell_check(check, output_limit)
+                command_ran = check.command
+                result.run_command = command_ran
+            elif isinstance(check, GatorGraderCheck):
+                result = _run_gg_check(check, output_limit)
+                if GG_COMMAND_ARG in check.gg_args:
+                    index_of_command = check.gg_args.index(GG_COMMAND_ARG)
+                    index_of_new_command = index_of_command + 1
+                    result.run_command = check.gg_args[index_of_new_command]
+            if result is not None and no_progress_bar:
+                result.print()
+                results.append(result)
+            elif result is not None:
+                results.append(result)
+                progress.print(result.display_result())
+                progress.update(task, advance=1)
+
+    if no_progress_bar:
+        run_checks_handle_prog_bar()
+    else:
+        with Progress(
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(
+                bar_width=40,
+                style="red",
+                complete_style="green",
+                finished_style="green",
+            ),
+            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+            TextColumn("[green]({task.completed}/{task.total})[/green]"),
+            TimeElapsedColumn(),
+        ) as progress:
+            # add a progress task for tracking
+            task = progress.add_task(
+                f"[green]{RUNNING_CHECKS_LABEL}", total=total_checks
+            )
+            run_checks_handle_prog_bar(task)
+    ######################
     # run checks with no progress bar
     if no_progress_bar:
         rich.print()
