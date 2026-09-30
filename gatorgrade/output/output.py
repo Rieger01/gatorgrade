@@ -801,7 +801,6 @@ def _format_remaining_time(due_date: datetime.datetime) -> tuple[str, str]:
     return f"{OVERDUE_LABEL} by {time_str}", TIME_REMAINING_OVERDUE
 
 
-
 def run_checks(  # noqa: PLR0912, PLR0913, PLR0915
     checks: List[Union[ShellCheck, GatorGraderCheck]],
     report: Tuple[str, str, str],
@@ -896,27 +895,50 @@ def run_checks(  # noqa: PLR0912, PLR0913, PLR0915
     rich.print(Rule(RUNNING_CHECKS_RULE_LABEL))
     rich.print()
 
+    # run checks whether or not the progress bar is shown, handling updates accordingly
     def run_checks_handle_prog_bar(task=None) -> None:
         for check in checks:
             result = None
+            # command_ran = None
+            # run a shell check; this means
+            # that it is going to run a command
+            # in the shell as a part of a check;
+            # store the command that ran in the
+            # field called run_command that is
+            # inside of a CheckResult object but
+            # not initialized in the constructor
             if isinstance(check, ShellCheck):
                 result = _run_shell_check(check, output_limit)
                 command_ran = check.command
                 result.run_command = command_ran
+            # run a check that GatorGrade implements
             elif isinstance(check, GatorGraderCheck):
                 result = _run_gg_check(check, output_limit)
+                # check to see if there was a command in the
+                # GatorGraderCheck. This code finds the index of the
+                # word "--command" in the check.gg_args list if it
+                # is available (it is not available for all of
+                # the various types of GatorGraderCheck instances),
+                # and then it adds 1 to that index to get the actual
+                # command run and then stores that command in the
+                # result.run_command field that is initialized to
+                # an empty string in the constructor for CheckResult
                 if GG_COMMAND_ARG in check.gg_args:
                     index_of_command = check.gg_args.index(GG_COMMAND_ARG)
                     index_of_new_command = index_of_command + 1
                     result.run_command = check.gg_args[index_of_new_command]
+            # display any results from running the checks, update the progress bar if shown
             if result is not None and no_progress_bar:
                 result.print()
                 results.append(result)
             elif result is not None:
                 results.append(result)
+                # use the progress bar's print method so each check
+                # appears above the progress bar as it completes
                 progress.print(result.display_result())
                 progress.update(task, advance=1)
 
+    # run checks, using Progress() if the progress bar has not been disabled
     if no_progress_bar:
         run_checks_handle_prog_bar()
     else:
