@@ -15,6 +15,7 @@ from rich.markup import escape
 from rich.progress import (
     BarColumn,
     Progress,
+    TaskID,
     TextColumn,
     TimeElapsedColumn,
 )
@@ -801,7 +802,6 @@ def _format_remaining_time(due_date: datetime.datetime) -> tuple[str, str]:
     return f"{OVERDUE_LABEL} by {time_str}", TIME_REMAINING_OVERDUE
 
 
-
 def run_checks(  # noqa: PLR0912, PLR0913, PLR0915
     checks: List[Union[ShellCheck, GatorGraderCheck]],
     report: Tuple[str, str, str],
@@ -896,7 +896,7 @@ def run_checks(  # noqa: PLR0912, PLR0913, PLR0915
     rich.print(Rule(RUNNING_CHECKS_RULE_LABEL))
     rich.print()
 
-    def run_checks_handle_prog_bar(task=None) -> None:
+    def run_checks_handle_prog_bar(task: TaskID | None = None) -> None:
         for check in checks:
             result = None
             if isinstance(check, ShellCheck):
@@ -913,6 +913,7 @@ def run_checks(  # noqa: PLR0912, PLR0913, PLR0915
                 result.print()
                 results.append(result)
             elif result is not None:
+                assert task is not None
                 results.append(result)
                 progress.print(result.display_result())
                 progress.update(task, advance=1)
